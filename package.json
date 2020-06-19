@@ -20,6 +20,8 @@
   },
   "scripts": {
     "start": "node .",
-    "develop": "firebase emulators:exec \"npm start\""
+    "develop": "firebase emulators:exec \"npm start\"",
+    "lint": "eslint .",
+    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
