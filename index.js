@@ -6,6 +6,13 @@ const Discord = require("discord.js");
 const config = require("./config.json");
 const CronJob = require("cron").CronJob;
 const fs = require("fs");
+const admin = require("firebase-admin");
+
+admin.initializeApp({
+  credential: admin.credential.cert(JSON.parse(process.env.SERVICE_ACCOUNT)),
+});
+
+let db = admin.firestore();
 
 // Create client instance
 const client = new Discord.Client({
@@ -14,6 +21,10 @@ const client = new Discord.Client({
 
 // Get Reactions Function
 let getReactions = async (datetime, channel) => {
+  if (channel.partial) {
+    await tryGetObject(channel);
+  }
+
   await channel.send(`These are the reactions on ${datetime}\n`);
   let messages = await channel.messages.fetch({ limit: 100 });
 
@@ -23,6 +34,10 @@ let getReactions = async (datetime, channel) => {
 
   await Promise.all(
     messages.map(async (message) => {
+      if (message.partial) {
+        await tryGetObject(message);
+      }
+
       let content = message.cleanContent;
       content =
         content.length < 100 ? content : content.substring(0, 100) + "...";
@@ -32,11 +47,7 @@ let getReactions = async (datetime, channel) => {
       await Promise.all(
         message.reactions.cache.map(async (reaction) => {
           if (reaction.partial) {
-            try {
-              await reaction.fetch();
-            } catch (error) {
-              console.error("Error fetching reaction: " + error);
-            }
+            await tryGetObject(reaction);
           }
 
           let reactionOutput = `\t${reaction.emoji.toString()}\n`;
@@ -56,12 +67,7 @@ let getReactions = async (datetime, channel) => {
 
 // Tasks Init
 let tasks = {};
-let state = {};
-
-// Tasks Write Function
-let writeTasks = () => {
-  fs.writeFileSync(config.statefile, JSON.stringify(state));
-};
+let tasksRef = db.collection("tasks");
 
 // Schedule Task Function
 let scheduleTask = async (minute, hour, channel) => {
@@ -82,38 +88,32 @@ let scheduleTask = async (minute, hour, channel) => {
   );
 };
 
+let tryGetObject = async (object) => {
+  try {
+    await object.fetch();
+  } catch (err) {
+    console.error(`Error fetching ${typeof object}: `, err);
+  }
+};
+
 // Start App Function
 let startApp = async () => {
-  try {
-    let file = fs.readFileSync(config.statefile, { encoding: "utf8" });
-    state = JSON.parse(file);
-  } catch (err) {
-    console.log("State does not exsist! Starting fresh...");
-  }
-
-  console.log(state);
-  // Initialize tasks from state
-  for (var channelId in state) {
-    let taskTime = state[channelId];
-    console.log(channelId);
-    console.log(taskTime);
-    let channel = await client.channels.fetch(channelId);
-    if (channel.partial) {
-      try {
-        channel.fetch();
-      } catch (err) {
-        console.error(
-          "Something went wrong when fetching the channel during init: " + err
+  tasksRef.get().then((snapshot) => {
+    console.log(snapshot);
+    snapshot.forEach((doc) => {
+      client.channels.fetch(doc.id).then(async (channel) => {
+        if (channel.partial) {
+          await tryGetObject(channel);
+        }
+        tasks[doc.id] = await scheduleTask(
+          doc.data().minute,
+          doc.data().hour,
+          channel
         );
-      }
-    }
-    tasks[channelId] = await scheduleTask(
-      taskTime.minute,
-      taskTime.hour,
-      channel
-    );
-    tasks[channelId].start();
-  }
+        tasks[doc.id].start();
+      });
+    });
+  });
 };
 
 // Log once client is ready
@@ -155,23 +155,33 @@ ${config.prefix}deletetime: Cancel reaction collection in this channel.
     if (!message.member.permissions.has("MANAGE_GUILD")) {
       message.channel.send("You don't have permission to do this!");
     } else {
+      // Check if time pas passed in
       if (typeof args[0] === "undefined") {
         message.channel.send("Error! No time provided!");
         return;
       }
+
+      // Parse time
+      let hour, minute;
+      if (args[0].includes(":")) {
+        [hour, minute] = args[0].split(":");
+      } else if (!isNaN(args[0])) {
+        hour = args[0];
+        minute = typeof args[1] === "undefined" ? 0 : args[1];
+      } else {
+        message.channel.send("Error! Invalid time provided!");
+        return;
+      }
+
+      console.log(hour, minute);
+
+      // Stop and delete old tasks
       if (typeof tasks[message.channel.id] !== "undefined") {
         tasks[message.channel.id].stop();
         delete tasks[message.channel.id];
       }
-      let hour = args[0];
-      let minute = typeof args[1] === "undefined" ? 0 : args[1];
-      if (typeof hour === "string") {
-        if (hour.includes(":")) {
-          [hour, minute] = hour.split(":");
-        }
-      }
-      console.log(hour, minute);
 
+      // Schedule and start task
       tasks[message.channel.id] = await scheduleTask(
         minute,
         hour,
@@ -179,11 +189,12 @@ ${config.prefix}deletetime: Cancel reaction collection in this channel.
       );
       tasks[message.channel.id].start();
 
-      state[message.channel.id] = {
+      // Save to Firebase
+      tasksRef.doc(message.channel.id).set({
         hour: hour,
         minute: minute,
-      };
-      writeTasks();
+      });
+
       message.channel.send(
         `Reaction collection has been set for ${hour
           .toString()
@@ -201,8 +212,8 @@ ${config.prefix}deletetime: Cancel reaction collection in this channel.
       } else {
         tasks[message.channel.id].stop();
         delete tasks[message.channel.id];
-        delete state[message.channel.id];
-        writeTasks();
+        tasksRef.doc(message.channel.id).delete();
+        // Add firebase delete here
       }
       message.channel.send(output);
     }
