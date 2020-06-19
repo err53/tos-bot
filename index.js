@@ -148,55 +148,60 @@ Thank you for trying TOS Bot!
     await getReactions(datetime, message.channel);
   }
   if (command == "settime") {
-    if (typeof args[0] === "undefined") {
-      message.channel.send("Error! No time provided!");
-      return;
-    }
-    if (typeof tasks[message.channel.id] !== "undefined") {
-      tasks[message.channel.id].stop();
-      delete tasks[message.channel.id];
-    }
-    let hour = args[0];
-    let minute = typeof args[1] === "undefined" ? 0 : args[1];
-    if (typeof hour === "string") {
-      if (hour.includes(":")) {
-        [hour, minute] = hour.split(":");
+    if (!message.member.permissions.has("MANAGE_GUILD")) {
+      message.channel.send("You don't have permission to do this!");
+    } else {
+      if (typeof args[0] === "undefined") {
+        message.channel.send("Error! No time provided!");
+        return;
       }
+      if (typeof tasks[message.channel.id] !== "undefined") {
+        tasks[message.channel.id].stop();
+        delete tasks[message.channel.id];
+      }
+      let hour = args[0];
+      let minute = typeof args[1] === "undefined" ? 0 : args[1];
+      if (typeof hour === "string") {
+        if (hour.includes(":")) {
+          [hour, minute] = hour.split(":");
+        }
+      }
+      console.log(hour, minute);
+
+      tasks[message.channel.id] = await scheduleTask(
+        minute,
+        hour,
+        message.channel
+      );
+      tasks[message.channel.id].start();
+
+      state[message.channel.id] = {
+        hour: hour,
+        minute: minute,
+      };
+      writeTasks();
+      message.channel.send(
+        `Reaction collection has been set for ${hour
+          .toString()
+          .padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
+      );
     }
-    console.log(hour, minute);
-
-    tasks[message.channel.id] = await scheduleTask(
-      minute,
-      hour,
-      message.channel
-    );
-    tasks[message.channel.id].start();
-
-    state[message.channel.id] = {
-      hour: hour,
-      minute: minute,
-    };
-    writeTasks();
-    message.channel.send(
-      `Reaction collection has been set for ${hour
-        .toString()
-        .padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
-    );
   }
   if (command == "deletetime") {
-    if (typeof tasks[message.channel.id] === "undefined") {
-      message.channel.send(
-        "There is no reaction colection scheduled in this channel!"
-      );
-      return;
+    if (!message.member.permissions.has("MANAGE_GUILD")) {
+      message.channel.send("You don't have permission to do this!");
+    } else {
+      let output = "Reaction collection has been canceled in this channel!";
+      if (typeof tasks[message.channel.id] === "undefined") {
+        output = "There is no reaction colection scheduled in this channel!";
+      } else {
+        tasks[message.channel.id].stop();
+        delete tasks[message.channel.id];
+        delete state[message.channel.id];
+        writeTasks();
+      }
+      message.channel.send(output);
     }
-    tasks[message.channel.id].stop();
-    delete tasks[message.channel.id];
-    delete state[message.channel.id];
-    writeTasks();
-    message.channel.send(
-      "Reaction collection has been canceled in this channel!"
-    );
   }
   console.log(tasks);
 });
