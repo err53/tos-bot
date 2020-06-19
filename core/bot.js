@@ -1,14 +1,12 @@
-// Load Env Vars
-require("dotenv").config();
-
+// Load config
+const config = require("config");
 // Load dependencies
 const Discord = require("discord.js");
-const config = require("./config.json");
 const CronJob = require("cron").CronJob;
 const admin = require("firebase-admin");
 
 admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.SERVICE_ACCOUNT)),
+  credential: admin.credential.cert(config.get("service_account")),
 });
 
 let db = admin.firestore();
@@ -83,7 +81,7 @@ let scheduleTask = async (minute, hour, channel) => {
     },
     null,
     true,
-    config.timezone
+    config.get("timezone")
   );
 };
 
@@ -122,9 +120,10 @@ client.once("ready", async () => {
 });
 
 client.on("message", async (message) => {
-  if (!message.content.startsWith(config.prefix) || message.author.bot) return;
+  if (!message.content.startsWith(config.get("prefix")) || message.author.bot)
+    return;
 
-  const args = message.content.slice(config.prefix.length).split(/ +/);
+  const args = message.content.slice(config.get("prefix").length).split(/ +/);
   const command = args.shift().toLowerCase();
 
   // console.log(args);
@@ -137,12 +136,14 @@ client.on("message", async (message) => {
     message.channel.send(`\
 Thank you for trying TOS Bot!
 \`\`\`
-${config.prefix}help: Get help.
-${config.prefix}ping: Ping the bot.
-${config.prefix}reacts: Get current reactions in the channel.
-${config.prefix}settime HOUR MINUTE: Set time to collect reactions in this channel.
+${config.get("prefix")}help: Get help.
+${config.get("prefix")}ping: Ping the bot.
+${config.get("prefix")}reacts: Get current reactions in the channel.
+${config.get(
+  "prefix"
+)}settime HOUR MINUTE: Set time to collect reactions in this channel.
 \t Separate hour and minute using a space or a colon.
-${config.prefix}deletetime: Cancel reaction collection in this channel.
+${config.get("prefix")}deletetime: Cancel reaction collection in this channel.
 \`\`\``);
   }
 
@@ -219,4 +220,4 @@ ${config.prefix}deletetime: Cancel reaction collection in this channel.
   }
   console.log(tasks);
 });
-client.login(process.env.TOKEN);
+client.login(config.get("token"));
