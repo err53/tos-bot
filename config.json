@@ -1,3 +1,5 @@
 {
-  "prefix": "!"
+  "prefix": "!",
+  "timezone": "America/Toronto",
+  "statefile": "state.json"
 }
