@@ -5,7 +5,6 @@ require("dotenv").config();
 const Discord = require("discord.js");
 const config = require("./config.json");
 const CronJob = require("cron").CronJob;
-const fs = require("fs");
 const admin = require("firebase-admin");
 
 admin.initializeApp({
