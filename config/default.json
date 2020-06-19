@@ -1,0 +1,6 @@
+{
+  "prefix": "~",
+  "timezone": "America/Toronto",
+  "token": "DISCORD_BOT_TOKEN",
+  "service_account": "FIREBASE_SERVICE_ACCOUNT_OBJECT"
+}

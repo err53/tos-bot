@@ -163,5 +163,5 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/node,linux,visualstudiocode,firebase,yarn
 
-config/default.json
+config/development.json
 state.json
