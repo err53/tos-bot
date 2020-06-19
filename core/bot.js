@@ -22,7 +22,14 @@ let getReactions = async (datetime, channel) => {
     await tryGetObject(channel);
   }
 
-  await channel.send(`These are the reactions on ${datetime}\n`);
+  await channel.send(
+    `These are the reactions on ${datetime.toLocaleString(
+      config.get("locale"),
+      {
+        timeZone: config.get("timezone"),
+      }
+    )}\n`
+  );
   let messages = await channel.messages.fetch({ limit: 100 });
 
   messages = messages.filter((message) => {
@@ -76,7 +83,7 @@ let scheduleTask = async (minute, hour, channel) => {
   return new CronJob(
     `0 ${minute} ${hour} * * *`,
     async () => {
-      let datetime = new Date().toString();
+      let datetime = new Date();
       await getReactions(datetime, channel);
     },
     null,
@@ -142,13 +149,13 @@ ${config.get("prefix")}reacts: Get current reactions in the channel.
 ${config.get(
   "prefix"
 )}settime HOUR MINUTE: Set time to collect reactions in this channel.
-\t Separate hour and minute using a space or a colon.
+\t Separate hour and minute using a space or a colon. Make sure to use 24 hour time!
 ${config.get("prefix")}deletetime: Cancel reaction collection in this channel.
 \`\`\``);
   }
 
   if (command == "reacts") {
-    let datetime = new Date().toString();
+    let datetime = new Date();
     await getReactions(datetime, message.channel);
   }
   if (command == "settime") {
