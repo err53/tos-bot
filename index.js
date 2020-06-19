@@ -18,15 +18,16 @@ let getReactions = async (datetime, channel) => {
   let messages = await channel.messages.fetch({ limit: 100 });
 
   messages = messages.filter((message) => {
-    return message.reactions.cache.size != 0;
+    return message.reactions.cache.size != 0 && !message.author.bot;
   });
 
   await Promise.all(
     messages.map(async (message) => {
-      let content =
-        message.content.length < 100
-          ? message.content
-          : message.content.substring(0, 100) + "...";
+      let content = message.cleanContent;
+      content =
+        content.length < 100 ? content : content.substring(0, 100) + "...";
+      content = content.replace("\n", " ");
+      content = content.replace(/(?:\*|_|#)/g, "");
       let messageOutput = `**${content}:**\n`;
       await Promise.all(
         message.reactions.cache.map(async (reaction) => {
@@ -48,7 +49,7 @@ let getReactions = async (datetime, channel) => {
         })
       );
       await channel.send(messageOutput);
-      console.log(messageOutput)
+      console.log(messageOutput);
     })
   );
 };
