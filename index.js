@@ -1,6 +1,16 @@
+// Load Env Vars
+require("dotenv").config();
+
 // Load dependencies
 const Discord = require("discord.js");
 const config = require("./config.json");
+
+// Custom Vars and Functions
+let reactions = {};
+
+let isEmpty = (obj) => {
+  return Object.getOwnPropertyNames(obj).length === 0;
+};
 
 // Create client instance
 const client = new Discord.Client({
@@ -12,103 +22,76 @@ client.once("ready", () => {
   console.log("Ready!");
 });
 
-let reactions = {};
-
-let isEmpty = (obj) => {
-  return Object.getOwnPropertyNames(obj).length === 0;
-};
-
 client.on("message", async (message) => {
   if (!message.content.startsWith(config.prefix) || message.author.bot) return;
 
   const args = message.content.slice(config.prefix.length).split(/ +/);
   const command = args.shift().toLowerCase();
 
-  console.log(args);
-  console.log(command);
+  // console.log(args);
+  // console.log(command);
   if (command == "ping") {
     message.channel.send("Pong!");
   }
   if (command == "reacts") {
     let output = "These are the reactions for each message\n";
-    try {
-      for (let messageId in reactions) {
-        if (!Object.prototype.hasOwnProperty.call(reactions, messageId))
-          continue;
+    let messages = await message.channel.messages.fetch({ limit: 100 });
 
-        let local_message = await message.channel.messages.fetch(messageId);
-
-        output += `**${local_message.content}:**\n`;
-
-        let users = reactions[messageId];
-        for (let userId in users) {
-          if (!Object.prototype.hasOwnProperty.call(users, userId)) continue;
-
-          output += `${(await client.users.fetch(userId)).username}:\n`;
-
-          let emojis = users[userId];
-          for (let emoji in emojis) {
-            if (!Object.prototype.hasOwnProperty.call(emojis, emoji)) continue;
-
-            output += `\t${emoji}\n`;
+    messages
+      .filter((message) => {
+        message.reactions.cache.size != 0;
+      })
+      .each(async (message) => {
+        output += `**${message.content}:**\n`;
+        message.reactions.cache.each((reaction) => {
+          if (reaction.partial) {
+            try {
+              reaction.fetch();
+            } catch (error) {
+              console.error("Error fetching reaction: " + error);
+            }
           }
-        }
-      }
-    } catch (error) {
-      console.log("Something went wrong: ", error);
-      // Return as `reaction.message.author` may be undefined/null
-      return;
-    }
-    message.channel.send(output);
-  }
-});
 
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (reaction.partial) {
-    try {
-      await reaction.fetch();
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      // Return as `reaction.message.author` may be undefined/null
-      return;
-    }
-  }
-  console.log(reaction);
-  reactions[reaction.message.id] = reactions[reaction.message.id] || {};
-  reactions[reaction.message.id][user.id] =
-    reactions[reaction.message.id][user.id] || {};
+          output += `\t${reaction.emoji.toString()}\n`;
 
-  reactions[reaction.message.id][user.id][reaction.emoji] = true;
-  console.log(reactions);
-});
+          reaction.users.fetch().then((users) => {
+            users.each((user) => {
+              output += `\t\t${user.username}\n`;
+            });
+          });
+        });
 
-client.on("messageReactionRemove", async (reaction, user) => {
-  if (reaction.partial) {
-    try {
-      await reaction.fetch();
-    } catch (error) {
-      console.log("Something went wrong when fetching the message: ", error);
-      // Return as `reaction.message.author` may be undefined/null
-      return;
-    }
-  }
-  console.log(reaction);
-  delete reactions[reaction.message.id][user.id][reaction.emoji];
-  if (isEmpty(reactions[reaction.message.id][user.id])) {
-    delete reactions[reaction.message.id][user.id];
-  }
-  if (isEmpty(reactions[reaction.message.id])) {
-    delete reactions[reaction.message.id];
-  }
-  console.log(reactions);
-});
+        // .each(async (selectedMessage) => {
+        //   let selectedReactions = selectedMessage.reactions.cache;
+        //   if (selectedReactions.size != 0) {
+        //     console.log(selectedMessage.content);
+        //     output += `**${selectedMessage.content}:**\n`;
 
-client.on("messageDelete", async (message) => {
-  if (reactions[message.id]) {
-    delete reactions[message.id];
-    console.log(reactions);
+        //     selectedReactions.each((reaction) => {
+        //       if (reaction.partial) {
+        //         try {
+        //           reaction.fetch();
+        //         } catch (error) {
+        //           console.error("Error fetching reaction: " + error);
+        //         }
+        //       }
+        //       // console.log(reaction.emoji.toString());
+        //       output += `\t${reaction.emoji.toString()}\n`;
+
+        //       reaction.users.fetch().then((users) => {
+        //         users.each((user) => {
+        //           // console.log(user.username);
+        //           output += `\t\t${user.username}\n`;
+        //         });
+        //       });
+        //     });
+        //   }
+        // });
+      });
+    console.log(output);
+    await message.channel.send(output);
   }
 });
 
 // Login with app token
-client.login(config.token);
+client.login(process.env.TOKEN);

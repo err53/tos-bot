@@ -136,4 +136,4 @@ temp/
 
 # End of https://www.gitignore.io/api/node,linux,visualstudiocode
 
-config.json
+.env*
