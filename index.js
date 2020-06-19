@@ -14,7 +14,7 @@ const client = new Discord.Client({
 
 // Get Reactions Function
 let getReactions = async (datetime, channel) => {
-  let output = `These are the reactions on ${datetime}\n`;
+  await channel.send(`These are the reactions on ${datetime}\n`);
   let messages = await channel.messages.fetch({ limit: 100 });
 
   messages = messages.filter((message) => {
@@ -23,7 +23,11 @@ let getReactions = async (datetime, channel) => {
 
   await Promise.all(
     messages.map(async (message) => {
-      let messageOutput = `**${message.content}:**\n`;
+      let content =
+        message.content.length < 100
+          ? message.content
+          : message.content.substring(0, 100) + "...";
+      let messageOutput = `**${content}:**\n`;
       await Promise.all(
         message.reactions.cache.map(async (reaction) => {
           if (reaction.partial) {
@@ -43,11 +47,10 @@ let getReactions = async (datetime, channel) => {
           messageOutput += reactionOutput;
         })
       );
-      output += messageOutput;
+      await channel.send(messageOutput);
+      console.log(messageOutput)
     })
   );
-  console.log(output);
-  await channel.send(output);
 };
 
 // Tasks Init
@@ -134,12 +137,12 @@ client.on("message", async (message) => {
     message.channel.send(`\
 Thank you for trying TOS Bot!
 \`\`\`
-!help: Get help.
-!ping: Ping the bot.
-!reacts: Get current reactions in the channel.
-!settime HOUR [MINUTE]: Set time to collect reactions in this channel.
+${config.prefix}help: Get help.
+${config.prefix}ping: Ping the bot.
+${config.prefix}reacts: Get current reactions in the channel.
+${config.prefix}settime HOUR MINUTE: Set time to collect reactions in this channel.
 \t Separate hour and minute using a space or a colon.
-!deletetime: Cancel reaction collection in this channel.
+${config.prefix}deletetime: Cancel reaction collection in this channel.
 \`\`\``);
   }
 
