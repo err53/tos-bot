@@ -2,13 +2,13 @@
 require("dotenv").config();
 
 // Load dependencies
-import { Client } from "discord.js";
-import { statefile, timezone, prefix } from "./config.json";
-import { CronJob } from "cron";
-import { writeFileSync, readFileSync } from "fs";
+const Discord = require("discord.js");
+const config = require("./config.json");
+const CronJob = require("cron").CronJob;
+const fs = require("fs");
 
 // Create client instance
-const client = new Client({
+const client = new Discord.Client({
   partials: ["MESSAGE", "CHANNEL", "REACTION"],
 });
 
@@ -56,7 +56,7 @@ let state = {};
 
 // Tasks Write Function
 let writeTasks = () => {
-  writeFileSync(statefile, JSON.stringify(state));
+  fs.writeFileSync(config.statefile, JSON.stringify(state));
 };
 
 // Schedule Task Function
@@ -74,14 +74,14 @@ let scheduleTask = async (minute, hour, channel) => {
     },
     null,
     true,
-    timezone
+    config.timezone
   );
 };
 
 // Start App Function
 let startApp = async () => {
   try {
-    let file = readFileSync(statefile, { encoding: "utf8" });
+    let file = fs.readFileSync(config.statefile, { encoding: "utf8" });
     state = JSON.parse(file);
   } catch (err) {
     console.log("State does not exsist! Starting fresh...");
@@ -119,9 +119,9 @@ client.once("ready", async () => {
 });
 
 client.on("message", async (message) => {
-  if (!message.content.startsWith(prefix) || message.author.bot) return;
+  if (!message.content.startsWith(config.prefix) || message.author.bot) return;
 
-  const args = message.content.slice(prefix.length).split(/ +/);
+  const args = message.content.slice(config.prefix.length).split(/ +/);
   const command = args.shift().toLowerCase();
 
   // console.log(args);
