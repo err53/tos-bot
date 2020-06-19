@@ -47,7 +47,7 @@ let getReactions = async (datetime, channel) => {
             await tryGetObject(reaction);
           }
 
-          let reactionOutput = `\t${reaction.emoji.toString()}\n`;
+          let reactionOutput = `\t${reaction.emoji}\n`;
 
           let users = await reaction.users.fetch();
           users.map((user) => {
