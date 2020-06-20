@@ -2,7 +2,7 @@
   "name": "tos-bot",
   "version": "0.1.0",
   "description": "A Discord bot aiding with TOS games",
-  "main": "core/bot.js",
+  "main": "src/bot.js",
   "author": "Jason Huang",
   "license": "MIT",
   "dependencies": {

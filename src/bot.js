@@ -58,7 +58,7 @@ let getReactions = async (datetime, channel) => {
 
           let users = await reaction.users.fetch();
           users.map((user) => {
-            reactionOutput += `\t\t${user.username}\n`;
+            reactionOutput += `\t\t${user}\n`;
           });
           messageOutput += reactionOutput;
         })
