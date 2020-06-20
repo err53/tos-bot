@@ -6,6 +6,8 @@
   "author": "Jason Huang",
   "license": "MIT",
   "dependencies": {
+    "@types/config": "^0.0.36",
+    "@types/cron": "^1.7.2",
     "config": "^3.3.1",
     "cron": "^1.8.2",
     "discord.js": "^12.2.0",
