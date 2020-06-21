@@ -14,22 +14,22 @@ const db = admin.firestore();
 const tasksRef = db.collection('tasks');
 const guildsRef = db.collection('guilds');
 
+// Tasks Init
+const tasks = {};
+
 // Create client instance
 const client = new Discord.Client({
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
 });
 
 // Get Reactions Function
-const getReactions = async (datetime, channel) => {
-    if (channel.partial) {
-        await tryGetObject(channel);
-    }
-
+const getReactions = async (datetime: Date, channel: Discord.TextChannel | Discord.DMChannel | Discord.NewsChannel) => {
     await channel.send(
         `These are the reactions on ${datetime.toLocaleString(config.get('locale'), {
             timeZone: config.get('timezone'),
         })}\n`,
     );
+
     let messages = await channel.messages.fetch({ limit: 100 });
 
     messages = messages.filter((message) => {
@@ -70,11 +70,12 @@ const getReactions = async (datetime, channel) => {
     );
 };
 
-// Tasks Init
-const tasks = {};
-
 // Schedule Task Function
-const scheduleTask = async (minute, hour, channel) => {
+const scheduleTask = async (
+    minute: number,
+    hour: number,
+    channel: Discord.TextChannel | Discord.DMChannel | Discord.NewsChannel,
+) => {
     console.log(
         `Task scheduled in channel ${channel} on ${hour.toString().padStart(2, '0')}:${minute
             .toString()
@@ -92,7 +93,7 @@ const scheduleTask = async (minute, hour, channel) => {
     );
 };
 
-const tryGetObject = async (object) => {
+const tryGetObject = async (object: Discord.Message | Discord.MessageReaction) => {
     try {
         await object.fetch();
     } catch (err) {
@@ -100,7 +101,7 @@ const tryGetObject = async (object) => {
     }
 };
 
-const isAdmin = (guildMember) => {
+const isAdmin = (guildMember: Discord.GuildMember) => {
     if (
         guildMember.permissions.has('MANAGE_CHANNELS') ||
         guildMember.permissions.has('MANAGE_GUILD') ||
