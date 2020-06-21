@@ -10,6 +10,8 @@ admin.initializeApp({
 });
 
 let db = admin.firestore();
+let tasksRef = db.collection("tasks");
+let guildsRef = db.collection("guilds");
 
 // Create client instance
 const client = new Discord.Client({
@@ -71,7 +73,6 @@ let getReactions = async (datetime, channel) => {
 
 // Tasks Init
 let tasks = {};
-let tasksRef = db.collection("tasks");
 
 // Schedule Task Function
 let scheduleTask = async (minute, hour, channel) => {
@@ -100,10 +101,34 @@ let tryGetObject = async (object) => {
   }
 };
 
+let isAdmin = (guildMember) => {
+  if (
+    guildMember.permissions.has("MANAGE_CHANNELS") ||
+    guildMember.permissions.has("MANAGE_GUILD") ||
+    guildMember.permissions.has("MANAGE_ROLES")
+  )
+    return true;
+  let userRef = guildsRef
+    .doc(guildMember.guild.id)
+    .collection("users")
+    .doc(guildMember.id);
+  return userRef.get().then((doc) => {
+    if (!doc.exists) {
+      return false;
+    } else {
+      //   console.log(doc.id, "=>", doc.data());
+      //   console.log(doc.data().admin);
+      if (doc.data().admin) {
+        return true;
+      }
+    }
+  });
+};
+
 // Start App Function
 let startApp = async () => {
   tasksRef.get().then((snapshot) => {
-    console.log(snapshot);
+    // console.log(snapshot);
     snapshot.forEach((doc) => {
       client.channels.fetch(doc.id).then(async (channel) => {
         if (channel.partial) {
@@ -122,8 +147,9 @@ let startApp = async () => {
 
 // Log once client is ready
 client.once("ready", async () => {
-  await startApp();
-  console.log("Ready!");
+  await startApp().then(() => {
+    console.log("Ready!");
+  });
 });
 
 client.on("message", async (message) => {
@@ -141,16 +167,31 @@ client.on("message", async (message) => {
 
   if (command == "help") {
     message.channel.send(`\
-Thank you for trying TOS Bot!
 \`\`\`
-${config.get("prefix")}help: Get help.
-${config.get("prefix")}ping: Ping the bot.
-${config.get("prefix")}reacts: Get current reactions in the channel.
-${config.get(
-  "prefix"
-)}settime HOUR MINUTE: Set time to collect reactions in this channel.
-\t Separate hour and minute using a space or a colon. Make sure to use 24 hour time!
-${config.get("prefix")}deletetime: Cancel reaction collection in this channel.
+${config.get("prefix")}help
+\t Get help.
+
+${config.get("prefix")}ping
+\t Ping the bot.
+
+${config.get("prefix")}reacts
+\t Get current reactions in the channel.
+
+${config.get("prefix")}settime HOUR:MINUTE
+\t Set time to collect reactions.
+\t Make sure to use 24 hour time, and to include both hour and minute!
+
+${config.get("prefix")}deletetime
+\t Cancel reaction collection in this channel.
+
+${config.get("prefix")}addadmin @person1 [@person2...]
+\t Add person(s) to admins
+
+${config.get("prefix")}deleteadmin @person1 [@person2...]
+\t Delete person(s) from admins
+
+${config.get("prefix")}listadmins
+\t List the currently added admins
 \`\`\``);
   }
 
@@ -158,10 +199,16 @@ ${config.get("prefix")}deletetime: Cancel reaction collection in this channel.
     let datetime = new Date();
     await getReactions(datetime, message.channel);
   }
-  if (command == "settime") {
-    if (!message.member.permissions.has("MANAGE_GUILD")) {
-      message.channel.send("You don't have permission to do this!");
-    } else {
+
+  let adminCommands = [
+    "settime",
+    "deletetime",
+    "addadmin",
+    "removeadmin",
+    "listadmins",
+  ];
+  if (isAdmin(message.member)) {
+    if (command == "settime") {
       // Check if time pas passed in
       if (typeof args[0] === "undefined") {
         message.channel.send("Error! No time provided!");
@@ -208,11 +255,7 @@ ${config.get("prefix")}deletetime: Cancel reaction collection in this channel.
           .padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
       );
     }
-  }
-  if (command == "deletetime") {
-    if (!message.member.permissions.has("MANAGE_GUILD")) {
-      message.channel.send("You don't have permission to do this!");
-    } else {
+    if (command == "deletetime") {
       let output = "Reaction collection has been canceled in this channel!";
       if (typeof tasks[message.channel.id] === "undefined") {
         output = "There is no reaction colection scheduled in this channel!";
@@ -224,6 +267,63 @@ ${config.get("prefix")}deletetime: Cancel reaction collection in this channel.
       }
       message.channel.send(output);
     }
+    if (command == "addadmin") {
+      if (message.mentions.members.size == 0) {
+        message.channel.send("No members selected!");
+        return;
+      }
+      message.mentions.members.each((member) => {
+        let guild = message.guild.id;
+        let userRef = guildsRef.doc(guild).collection("users").doc(member.id);
+        userRef.set({
+          admin: true,
+        });
+        message.channel.send(`${member} is now an admin!`);
+      });
+    }
+    if (command == "removeadmin") {
+      if (message.mentions.members.size == 0) {
+        message.channel.send("No members selected!");
+        return;
+      }
+      message.mentions.members.each((member) => {
+        let guild = message.guild.id;
+        let userRef = guildsRef.doc(guild).collection("users").doc(member.id);
+        userRef.set({
+          admin: false,
+        });
+        message.channel.send(`${member} is no longer an admin!`);
+      });
+    }
+    if (command == "listadmins") {
+      let guildId = message.guild.id;
+      guildsRef
+        .doc(guildId)
+        .collection("users")
+        .where("admin", "==", true)
+        .get()
+        .then((snapshot) => {
+          if (snapshot.empty) {
+            message.channel.send(
+              "There are no additional added admins on this server."
+            );
+            return;
+          }
+          message.channel.send("These are the added admins in this server: ");
+          snapshot.forEach((doc) => {
+            message.guild.members.fetch(doc.id).then((guildMember) => {
+              console.log(guildMember.toString());
+              message.channel.send(guildMember.toString());
+            });
+          });
+        })
+        .catch((err) => {
+          message.channel.send("There was an error completing your request.");
+          console.log("Error getting documents", err);
+        });
+    }
+  } else if (adminCommands.includes(command)) {
+    message.channel.send("You don't have permission to do this!");
   }
   console.log(tasks);
 });
