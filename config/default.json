@@ -1,4 +1,5 @@
 {
+    "reactionLookbackLimit": 100,
     "prefix": "!",
     "locale": "en-US",
     "timezone": "America/Central",
